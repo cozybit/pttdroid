@@ -5,6 +5,8 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.nio.ByteBuffer;
+import java.util.Random;
 
 import ro.ui.pttdroid.codecs.Speex;
 import ro.ui.pttdroid.settings.AudioSettings;
@@ -36,9 +38,25 @@ public class Recorder extends Thread {
 	private DatagramSocket socket;
 	private DatagramPacket packet;
 	
-	private short[] pcmFrame = new short[AudioParams.FRAME_SIZE];
+	private short[] pcmFrame = new short[AudioParams.FRAME_SIZE + offsetInShorts];
 	private byte[] encodedFrame;
-			
+	
+	/*
+	 * Frame sequence number.  Reset to 1 between transmissions.
+	 */
+	private int seqNum;
+	
+	/*
+	 * Offset in bytes for leaving room for a header containing the seqNum.
+	 */
+	public static int offsetInBytes = 4;
+	public static int offsetInShorts = offsetInBytes/2;
+	
+	/*
+	 * Set to true FOR TESTING PURPOSES ONLY
+	 */
+	private static boolean introduceFakeLosses = true;
+	
 	public void run() {
 		// Set audio specific thread priority
 		android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
@@ -48,15 +66,39 @@ public class Recorder extends Thread {
 			while(isRunning()) {
 				
 				try {		
+					ByteBuffer target = ByteBuffer.wrap(encodedFrame);
+					byte[] headerBytes = ByteBuffer.allocate(offsetInBytes).putInt(seqNum).array();
+					
 					// Read PCM from the microphone buffer & encode it
 					if(AudioSettings.useSpeex()==AudioSettings.USE_SPEEX) {
-						recorder.read(pcmFrame, 0, AudioParams.FRAME_SIZE);
-						Speex.encode(pcmFrame, encodedFrame);						
+						// read data into pcmFrame
+						int readStatus = recorder.read(pcmFrame, 0, AudioParams.FRAME_SIZE);
+						
+						Log.i ("Read status: ", String.format("%d", readStatus));
+						
+						// encode audio in pcmFrame into encodedFrame to be sent in datagram
+						byte[] audioData = new byte[Speex.getEncodedSize(AudioSettings.getSpeexQuality())];
+						Speex.encode(pcmFrame, audioData);	
+						
+						target.put(headerBytes);
+						target.put(audioData);
 					}
 					else {
-						recorder.read(encodedFrame, 0, AudioParams.FRAME_SIZE_IN_BYTES);						
+						target.put(headerBytes);
+						recorder.read(encodedFrame, offsetInBytes, AudioParams.FRAME_SIZE_IN_BYTES);						
 					}
-																		
+					
+					if (introduceFakeLosses) {
+						Random randomGeneator = new Random();
+						// this should be 25 percent loss
+						if (randomGeneator.nextDouble() > 0.75) {
+							seqNum += 2; // introduce fake loss
+						} else {
+							seqNum++;
+						}
+					} else {
+					    seqNum++;
+					}
 					// Send encoded frame packed within an UDP datagram
 					socket.send(packet);
 				}
@@ -84,6 +126,8 @@ public class Recorder extends Thread {
 	
 	private void init() {				
 		try {	    	
+			seqNum = 1;
+			
 			PhoneIPs.load();
 			
 			socket = new DatagramSocket();
@@ -103,10 +147,13 @@ public class Recorder extends Thread {
 				break;
 			}							
 			
-			if(AudioSettings.useSpeex()==AudioSettings.USE_SPEEX)
-				encodedFrame = new byte[Speex.getEncodedSize(AudioSettings.getSpeexQuality())];
-			else 
-				encodedFrame = new byte[AudioParams.FRAME_SIZE_IN_BYTES];
+			// will use 4 bytes for storing seq number
+			if(AudioSettings.useSpeex()==AudioSettings.USE_SPEEX) {
+				encodedFrame = new byte[Speex.getEncodedSize(AudioSettings.getSpeexQuality()) + offsetInBytes];
+			}
+			else { 
+				encodedFrame = new byte[AudioParams.FRAME_SIZE_IN_BYTES  + offsetInBytes];
+			}
 			
 			packet = new DatagramPacket(
 					encodedFrame, 

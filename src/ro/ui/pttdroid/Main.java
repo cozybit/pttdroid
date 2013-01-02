@@ -4,6 +4,7 @@ import ro.ui.pttdroid.codecs.Speex;
 import ro.ui.pttdroid.settings.AudioSettings;
 import ro.ui.pttdroid.settings.CommSettings;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
@@ -19,6 +20,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class Main extends Activity implements OnTouchListener {
@@ -30,6 +32,7 @@ public class Main extends Activity implements OnTouchListener {
 	private static boolean isStarting = true;	
 	
 	private ImageView microphoneImage;	
+	private TextView lossesText;
 	
 	public static final int MIC_STATE_NORMAL = 0;
 	public static final int MIC_STATE_PRESSED = 1;
@@ -50,6 +53,7 @@ public class Main extends Activity implements OnTouchListener {
 	private static Runnable runnable;
 	private static int storedProgress = 0;	
 	private static final int PROGRESS_CHECK_PERIOD = 100;
+	
 		
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -62,10 +66,9 @@ public class Main extends Activity implements OnTouchListener {
     @Override
     public void onStart() {
     	super.onStart();
-    	
+    	lossesText.setText("");
     	// Initialize codec 
     	Speex.open(AudioSettings.getSpeexQuality());
-    	
     	player.resumeAudio();
     }
     
@@ -75,13 +78,14 @@ public class Main extends Activity implements OnTouchListener {
     	
     	player.pauseAudio();
     	recorder.pauseAudio();    	
-    	
+
     	// Release codec resources
     	Speex.close();
     }
             
     @Override
     public void onDestroy() {
+    	lossesText.setText("");
     	super.onDestroy();  
     	release();    	
     }
@@ -136,6 +140,21 @@ public class Main extends Activity implements OnTouchListener {
     	AudioSettings.getSettings(this);    	
     }
     
+
+    private void displayQuality() {
+    	double losses = (double) player.getLosses();
+    	double seqNum = (double) player.getSeqNum();
+    	Log.i ("Player", "Losses " + losses);
+    	Log.i ("Player", "seqNum " + seqNum);
+    	
+    	double quality = 100.0 - losses/seqNum * 100;
+    	lossesText.setText("Quality: " + String.format("%1$.2f", quality) + "%");
+    }
+    
+    private void clearLossesText() {
+    	lossesText.setText("");
+    }
+    
     public boolean onTouch(View v, MotionEvent e) {
     	if(getMicrophoneState()!=MIC_STATE_DISABLED) {    		
     		switch(e.getAction()) {
@@ -161,6 +180,7 @@ public class Main extends Activity implements OnTouchListener {
     	case MIC_STATE_PRESSED:
     		microphoneState = MIC_STATE_PRESSED;
     		microphoneImage.setImageResource(R.drawable.microphone_pressed_image);
+    		lossesText.setText("");
     		break;
     	case MIC_STATE_DISABLED:
     		microphoneState = MIC_STATE_DISABLED;
@@ -176,6 +196,9 @@ public class Main extends Activity implements OnTouchListener {
     private void init() {
     	microphoneImage = (ImageView) findViewById(R.id.microphone_image);
     	microphoneImage.setOnTouchListener(this);    	    	    	    	    	
+    	
+    	lossesText = (TextView) findViewById(R.id.lossesText);
+    	//lossesText.setText("Loses reported here");
     	
     	// When the volume keys will be pressed the audio stream volume will be changed. 
     	setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -200,12 +223,16 @@ public class Main extends Activity implements OnTouchListener {
 					if(currentProgress!=storedProgress) {
 						if(getMicrophoneState()!=MIC_STATE_DISABLED) {
 							recorder.pauseAudio();
-							setMicrophoneState(MIC_STATE_DISABLED);							
+							clearLossesText();
+							setMicrophoneState(MIC_STATE_DISABLED);
 						}						 							
 					}
 					else {
-						if(getMicrophoneState()==MIC_STATE_DISABLED)
+						if(getMicrophoneState()==MIC_STATE_DISABLED) {
 							setMicrophoneState(MIC_STATE_NORMAL);
+							displayQuality();
+				    		player.resetLosses();
+						}
 					}
 					
 					storedProgress = currentProgress;
@@ -230,7 +257,7 @@ public class Main extends Activity implements OnTouchListener {
 
     		// Force threads to finish.
     		player.finish();    		    		
-    		recorder.finish();
+    		recorder.finish();;
     		
     		try {
     			player.join();
