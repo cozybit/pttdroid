@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.MulticastSocket;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import ro.ui.pttdroid.codecs.Speex;
 import ro.ui.pttdroid.settings.AudioSettings;
@@ -29,6 +31,9 @@ public class Player extends Thread {
 	private byte[] encodedFrame;
 	
 	private int progress = 0;
+	private int losses = 0;
+	private int lastSeqNum;
+	private int seqNum = 1;
 				
 	public void run() {
 		android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);				 
@@ -40,24 +45,48 @@ public class Player extends Thread {
 				try {				
 					socket.receive(packet);	
 					
+					ByteBuffer buffer = ByteBuffer.wrap(encodedFrame);
+					
 					// If echo is turned off and I was the packet sender then skip playing
 					if(AudioSettings.getEchoState()==AudioSettings.ECHO_OFF && PhoneIPs.contains(packet.getAddress()))
 						continue;
 					
-					// Decode audio
 					if(AudioSettings.useSpeex()==AudioSettings.USE_SPEEX) {
-						Speex.decode(encodedFrame, encodedFrame.length, pcmFrame);
-						player.write(pcmFrame, 0, AudioParams.FRAME_SIZE);
+						// put encoded frame into a byte buffer
+						byte[] audioData = new byte[encodedFrame.length - Recorder.offsetInBytes];
+
+						// TODO this is lame, improve
+						System.arraycopy(encodedFrame, Recorder.offsetInBytes, audioData, 0, encodedFrame.length - Recorder.offsetInBytes);
+						
+						int decodeStatus = Speex.decode(audioData, audioData.length, pcmFrame);
+						Log.i ("Decode status: ", String.format("%d", decodeStatus));
+					
+						// only send the audio data to the player
+						int playerStatus = player.write(pcmFrame, 0, AudioParams.FRAME_SIZE);
+						Log.i ("Player write status: ", String.format("%d", playerStatus));
 					}
 					else {			
-						player.write(encodedFrame, 0, AudioParams.FRAME_SIZE_IN_BYTES);
+						player.write(encodedFrame, Recorder.offsetInBytes, AudioParams.FRAME_SIZE_IN_BYTES);
 					}	
+					
+					// window the header
+					byte[] header = new byte[Recorder.offsetInBytes];
+					buffer.get(header, 0, Recorder.offsetInBytes);
+					
+					seqNum = ByteBuffer.wrap(header).getInt();
+					int diff = seqNum - lastSeqNum;
+					
+					if (diff > 1) { // packet loss seen
+						losses += diff - 1;
+					}
+					
+					lastSeqNum = seqNum;
 					
 					// Make some progress
 					makeProgress();
 				}
 				catch(IOException e) {
-					Log.d("Player", e.toString());
+					Log.d("Player exception", e.toString());
 				}	
 			}		
 		
@@ -68,7 +97,7 @@ public class Player extends Thread {
 						this.wait();
 				}
 				catch(InterruptedException e) {
-					Log.d("Player", e.toString());
+					Log.d("Player interrupted", e.toString());
 				}
 			}			
 		}				
@@ -100,9 +129,9 @@ public class Player extends Thread {
 			}							
 			
 			if(AudioSettings.useSpeex()==AudioSettings.USE_SPEEX) 
-				encodedFrame = new byte[Speex.getEncodedSize(AudioSettings.getSpeexQuality())];
+				encodedFrame = new byte[Speex.getEncodedSize(AudioSettings.getSpeexQuality()) + Recorder.offsetInBytes];
 			else 
-				encodedFrame = new byte[AudioParams.FRAME_SIZE_IN_BYTES];
+				encodedFrame = new byte[AudioParams.FRAME_SIZE_IN_BYTES + Recorder.offsetInBytes];
 			
 			packet = new DatagramPacket(encodedFrame, encodedFrame.length);			
 			
@@ -118,6 +147,19 @@ public class Player extends Thread {
 			player.stop();		
 			player.release();
 		}
+		
+	}
+	
+	public void resetLosses() {
+		losses = 0;
+	}
+	
+	public int getLosses() {
+		return losses;
+	}
+	
+	public int getSeqNum() {
+		return seqNum;
 	}
 	
 	private synchronized void makeProgress() {

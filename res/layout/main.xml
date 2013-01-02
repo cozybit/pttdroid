@@ -5,9 +5,19 @@
     android:layout_height="fill_parent"
     android:gravity="center"    
     >
+
    	<ImageView
     	android:id="@+id/microphone_image"
     	android:src="@drawable/microphone_normal_image"
     	android:layout_width="300dip"
-	    android:layout_height="300dip" />    	
+	    android:layout_height="300dip" />
+   	
+   	<TextView
+   	    android:id="@+id/lossesText"
+   	    android:layout_width="300dip"
+   	    android:gravity="center"
+   	    android:layout_height="wrap_content"
+   	    android:textSize="30dip"
+   	    android:ems="10" />   	
+
 </LinearLayout>    	   	  	         	    	
