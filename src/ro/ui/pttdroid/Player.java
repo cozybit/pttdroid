@@ -72,13 +72,11 @@ public class Player extends Thread {
 					// window the header
 					byte[] header = new byte[Recorder.offsetInBytes];
 					buffer.get(header, 0, Recorder.offsetInBytes);
-					Log.i("ByteBuffer", "header size " + header.length);
 					
 					seqNum = ByteBuffer.wrap(header).getInt();
 					int diff = seqNum - lastSeqNum;
 					
-					if (diff > 1) {
-						Log.i("Played", "diff > 1");
+					if (diff > 1) { // packet loss seen
 						losses += diff - 1;
 					}
 					
