@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>    
     <string name="app_name">pttdroid</string>
-
+	
+    <string name="testmode_label">Testmode</string>
+    	<string name="testmode_start">Testmode is started</string>
+    	<string name="testmode_on">Testmode: ON</string>
+    	<string name="testmode_off">Testmode: OFF</string>
+    	
     <string name="settings_name">pttdroid Settings</string>
     <string name="settings_label">Settings</string>
     
