@@ -12,4 +12,9 @@
 				android:title="@string/settings_reset_all_label" />				
 		</menu>		
 	</item>
+	<item android:id="@+id/testmode"
+	    android:icon="@drawable/testing_icon"
+	    android:title="@string/testmode_label">
+	</item>
+	
 </menu>
