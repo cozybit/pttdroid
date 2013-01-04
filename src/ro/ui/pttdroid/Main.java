@@ -30,6 +30,7 @@ public class Main extends Activity implements OnTouchListener {
 	 * False if the activity starts after it was previously closed by a configuration change, like screen orientation. 
 	 */
 	private static boolean isStarting = true;	
+	public static boolean isTestmode = false;
 	
 	private ImageView microphoneImage;	
 	private TextView lossesText;
@@ -47,6 +48,7 @@ public class Main extends Activity implements OnTouchListener {
 	 */	
 	private static Player player;	
 	private static Recorder recorder;	
+	private static PlayHello playhello;
 	
 	// Block recording when playing  something.
 	private static Handler handler = new Handler();
@@ -111,11 +113,48 @@ public class Main extends Activity implements OnTouchListener {
     		return true;    
     	case R.id.settings_reset_all:
     		return resetAllSettings();    		
+    	case R.id.testmode:
+    		return testModeFunc();
     	default:
     		return super.onOptionsItemSelected(item);
     	}
     }
     
+    /**
+     * Start test mode.
+     * @return
+     */
+    public boolean testModeFunc() {
+    	SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+    	
+    	Editor editor = prefs.edit();
+    	editor.clear();
+    	editor.commit();   
+    	
+    	Toast toast;
+    	
+    	if(!isTestmode) {
+    		isTestmode = true;
+    		recorder.setTestmode(isTestmode);
+    		playhello.setRunLoop(isTestmode);
+
+    		toast = Toast.makeText(this, getString(R.string.testmode_on), Toast.LENGTH_SHORT);
+    		toast.setGravity(Gravity.CENTER, 0, 0);
+    		toast.show();
+    		Log.d("TESTMODE:", "test mode is ON");
+    	} else {
+    		isTestmode = false;
+    		recorder.setTestmode(isTestmode);
+    		playhello.setRunLoop(isTestmode);
+    		
+    		toast = Toast.makeText(this, getString(R.string.testmode_off), Toast.LENGTH_SHORT);
+    		toast.setGravity(Gravity.CENTER, 0, 0);
+    		toast.show();
+    		Log.d("TESTMODE:", "test mode is OFF");
+    	}
+    	return true;
+    }
+
     /**
      * Reset all settings to their default value
      * @return
@@ -213,6 +252,7 @@ public class Main extends Activity implements OnTouchListener {
     		    	    	    		
     		player = new Player();    		    		     		    	
     		recorder = new Recorder();
+    		playhello = new PlayHello();
     		
     		// Disable microphone when receiving data.
     		runnable = new Runnable() {
@@ -245,6 +285,8 @@ public class Main extends Activity implements OnTouchListener {
     		
     		player.start();
     		recorder.start(); 
+    		playhello.setDaemon(true);
+    		playhello.start();
     		
     		isStarting = false;    		
     	}
@@ -274,4 +316,11 @@ public class Main extends Activity implements OnTouchListener {
     	}
     }     
         
+    public static void resumeAudiofunc() {
+    	recorder.resumeAudio();
+    }
+    
+    public static void pauseAudiofunc() {
+    	recorder.pauseAudio();
+    }
 }
