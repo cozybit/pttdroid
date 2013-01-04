@@ -53,9 +53,12 @@ public class Player extends Thread {
 					
 					if(AudioSettings.useSpeex()==AudioSettings.USE_SPEEX) {
 						// put encoded frame into a byte buffer
-						byte[] oldAudioData = Arrays.copyOfRange(encodedFrame, Recorder.offsetInBytes, encodedFrame.length);
+						byte[] audioData = new byte[encodedFrame.length - Recorder.offsetInBytes];
+
+						// TODO this is lame, improve
+						System.arraycopy(encodedFrame, Recorder.offsetInBytes, audioData, 0, encodedFrame.length - Recorder.offsetInBytes);
 						
-						int decodeStatus = Speex.decode(oldAudioData, oldAudioData.length, pcmFrame);
+						int decodeStatus = Speex.decode(audioData, audioData.length, pcmFrame);
 						Log.i ("Decode status: ", String.format("%d", decodeStatus));
 					
 						// only send the audio data to the player
@@ -67,8 +70,9 @@ public class Player extends Thread {
 					}	
 					
 					// window the header
-					buffer.position(0).limit(Recorder.offsetInBytes - 1);
-					byte[] header = buffer.slice().array();
+					byte[] header = new byte[Recorder.offsetInBytes];
+					buffer.get(header, 0, Recorder.offsetInBytes);
+					Log.i("ByteBuffer", "header size " + header.length);
 					
 					seqNum = ByteBuffer.wrap(header).getInt();
 					int diff = seqNum - lastSeqNum;
@@ -80,10 +84,6 @@ public class Player extends Thread {
 					
 					lastSeqNum = seqNum;
 					
-					//Log.i ("header diff", String.format("%d", diff));
-					//Log.i ("header Sequence number", String.format("%d", seqNum));
-					//Log.i ("header LastSequence number", String.format("%d", lastSeqNum));
-					//Log.i ("header LOSSES Losses", String.format("%d", losses));
 					// Make some progress
 					makeProgress();
 				}
