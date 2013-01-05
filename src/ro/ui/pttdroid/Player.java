@@ -5,7 +5,6 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.MulticastSocket;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 import ro.ui.pttdroid.codecs.Speex;
 import ro.ui.pttdroid.settings.AudioSettings;

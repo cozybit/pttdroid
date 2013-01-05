@@ -4,7 +4,6 @@ import ro.ui.pttdroid.codecs.Speex;
 import ro.ui.pttdroid.settings.AudioSettings;
 import ro.ui.pttdroid.settings.CommSettings;
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
