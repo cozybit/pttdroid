@@ -57,7 +57,7 @@ public class Recorder extends Thread {
 	/*
 	 * Set to true FOR TESTING PURPOSES ONLY
 	 */
-	private static boolean introduceFakeLosses = true;
+	private static boolean introduceFakeLosses = false;
 	
 	private int hello_locator = 0;
 
