@@ -67,53 +67,33 @@ public class Recorder extends Thread {
 		
 		while(!isFinishing()) {		
 			init();
-			while(isRunning()) {
-				
-				try {		
-					// if Testmode is ON, use the pcmHello frame, encode and send it
-					if (isTestmode) {
-						this.playSingleHello();
+			while(isRunning()) {	
+				// if Testmode is ON, use the pcmHello frame, encode and send it
+				if (isTestmode) {
+					this.playSingleHello();
+				} else {
+					ByteBuffer target = ByteBuffer.wrap(encodedFrame);
+					byte[] headerBytes = ByteBuffer.allocate(offsetInBytes).putInt(seqNum).array();
+						
+					// Read PCM from the microphone buffer & encode it
+					if(AudioSettings.useSpeex()==AudioSettings.USE_SPEEX) {
+						// read data into pcmFrame
+						int readStatus = recorder.read(pcmFrame, 0, AudioParams.FRAME_SIZE);
+						Log.i ("Read status: ", String.format("%d", readStatus));						
+							
+						// encode audio in pcmFrame into encodedFrame to be sent in datagram
+						byte[] audioData = new byte[Speex.getEncodedSize(AudioSettings.getSpeexQuality())];
+						Speex.encode(pcmFrame, audioData);	
+							
+						target.put(headerBytes);
+						target.put(audioData);
 					} else {
-						ByteBuffer target = ByteBuffer.wrap(encodedFrame);
-						byte[] headerBytes = ByteBuffer.allocate(offsetInBytes).putInt(seqNum).array();
-						
-						// Read PCM from the microphone buffer & encode it
-						if(AudioSettings.useSpeex()==AudioSettings.USE_SPEEX) {
-							// read data into pcmFrame
-							int readStatus = recorder.read(pcmFrame, 0, AudioParams.FRAME_SIZE);
-							
-							Log.i ("Read status: ", String.format("%d", readStatus));
-							
-							// encode audio in pcmFrame into encodedFrame to be sent in datagram
-							byte[] audioData = new byte[Speex.getEncodedSize(AudioSettings.getSpeexQuality())];
-							Speex.encode(pcmFrame, audioData);	
-							
-							target.put(headerBytes);
-							target.put(audioData);
-						}
-						else {
-							target.put(headerBytes);
-							recorder.read(encodedFrame, offsetInBytes, AudioParams.FRAME_SIZE_IN_BYTES);						
-						}
-						
-						if (introduceFakeLosses) {
-							Random randomGeneator = new Random();
-							// this should be 25 percent loss
-							if (randomGeneator.nextDouble() > 0.75) {
-								seqNum += 2; // introduce fake loss
-							} else {
-								seqNum++;
-							}
-						} else {
-						    seqNum++;
-						}
-						// Send encoded frame packed within an UDP datagram
-						socket.send(packet);
-					}
+						target.put(headerBytes);
+						recorder.read(encodedFrame, offsetInBytes, AudioParams.FRAME_SIZE_IN_BYTES);						
+					}	
+					this.sendPacket();
 				}
-				catch(IOException e) {
-					Log.d("Recorder", e.toString());
-				}	
+				this.incrementSequenceNumber();
 			}		
 		
 			release();	
@@ -132,6 +112,28 @@ public class Recorder extends Thread {
 			}					
 		}							
 	}
+	
+	private void sendPacket() {
+		try {
+			socket.send(packet);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void incrementSequenceNumber() {
+		if (introduceFakeLosses) {
+			Random randomGeneator = new Random();
+			// this should be 25 percent loss
+			if (randomGeneator.nextDouble() > 0.75) {
+				seqNum += 2; // introduce fake loss
+			} else {
+				seqNum++;
+			}
+		} else {
+			seqNum++;
+		}	
+	}	
 	
 	private void init() {				
 		try {	    	
@@ -193,29 +195,12 @@ public class Recorder extends Thread {
 			// encode audio in pcmFrame into encodedFrame to be sent in datagram
 			byte[] audioData = new byte[Speex.getEncodedSize(AudioSettings.getSpeexQuality())];
 			Speex.encode(pcmFrame, audioData);	
-			//Speex.encode(pcmFrame, encodedFrame);
 
 			target.put(headerBytes);
 			target.put(audioData);
 
-			if (introduceFakeLosses) {
-				Random randomGeneator = new Random();
-				// this should be 25 percent loss
-				if (randomGeneator.nextDouble() > 0.75) {
-					seqNum += 2; // introduce fake loss
-				} else {
-					seqNum++;
-				}
-			} else {
-			    seqNum++;
-			}
-
 			// Send encoded frame packed within an UDP datagram
-			try {
-				socket.send(packet);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			this.sendPacket();
 		} // while loop for playing a single hello
 		hello_locator = 0;
 		try {
