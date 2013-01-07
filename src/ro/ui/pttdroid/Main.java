@@ -145,7 +145,6 @@ public class Main extends Activity implements OnTouchListener {
     		recorder.setTestmode(isTestmode);
     		setMicrophoneState(MIC_STATE_NORMAL);
     		recorder.pauseAudio();
-//    		playhello.setRunLoop(isTestmode);
     		
     		toast = Toast.makeText(this, getString(R.string.testmode_off), Toast.LENGTH_SHORT);
     		toast.setGravity(Gravity.CENTER, 0, 0);
@@ -261,7 +260,6 @@ public class Main extends Activity implements OnTouchListener {
     		    	    	    		
     		player = new Player();    		    		     		    	
     		recorder = new Recorder();
-//    		playhello = new PlayHello();
     		
     		// Disable microphone when receiving data.
     		runnable = new Runnable() {
@@ -272,14 +270,19 @@ public class Main extends Activity implements OnTouchListener {
 					// still playing audio data
 					if(currentProgress!=storedProgress) {
 						if(getMicrophoneState()!=MIC_STATE_DISABLED) {
-							Toast toast;
-							toast = Toast.makeText(getBaseContext(), "I receivid some packet", Toast.LENGTH_SHORT);
-				    		toast.setGravity(Gravity.CENTER, 0, 0);
-				    		toast.show();
-				    		
 							recorder.pauseAudio();
 							setMicrophoneState(MIC_STATE_DISABLED);
 							clearLossesText();
+
+							if (isTestmode) {
+								Toast toast;
+				    			toast = Toast.makeText(getBaseContext(), getString(R.string.testmode_intr), Toast.LENGTH_SHORT);
+				        		toast.setGravity(Gravity.CENTER, 0, 0);
+				        		toast.show();
+				        		
+				        		isTestmode = false;
+				        		recorder.setTestmode(isTestmode);
+							}
 						}						 							
 					}
 					else { // done playing
@@ -287,16 +290,13 @@ public class Main extends Activity implements OnTouchListener {
 							setMicrophoneState(MIC_STATE_NORMAL);
 							displayQuality();
 				    		player.resetLosses();
-				    		if (isTestmode) { // if still in test mode want to resume
-				    			Toast toast;
-								toast = Toast.makeText(getBaseContext(), "already testmode. done playing. resumeAudio()", Toast.LENGTH_SHORT);
-					    		toast.setGravity(Gravity.CENTER, 0, 0);
-					    		toast.show();
-					    		
-				    			setMicrophoneState(MIC_STATE_PRESSED);
-				    			recorder.setTestmode(isTestmode);
-				    			recorder.resumeAudio();
-				    		}
+				    		
+				    		/*
+				    		 * TODO: If you need to resume your test after your test
+				    		 * interrupted by receiving some message, you would have to do
+				    		 * it here.
+				    		 * 
+				    		 */
 						}
 					}
 					
@@ -311,9 +311,7 @@ public class Main extends Activity implements OnTouchListener {
     		player.start();
     		recorder.start();
     		clearLossesText();
-//    		playhello.setDaemon(true);
-//    		playhello.start();
-    		
+
     		isStarting = false;    		
     	}
     }
@@ -346,11 +344,4 @@ public class Main extends Activity implements OnTouchListener {
     	}
     }     
         
-    public static void resumeAudiofunc() {
-    	recorder.resumeAudio();
-    }
-    
-    public static void pauseAudiofunc() {
-    	recorder.pauseAudio();
-    }
 }

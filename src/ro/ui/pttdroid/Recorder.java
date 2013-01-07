@@ -74,7 +74,7 @@ public class Recorder extends Thread {
 					if (isTestmode) {
 						while (isTestmode) {
 							this.playSingleHello();
-						}
+							}
 					} else {
 						ByteBuffer target = ByteBuffer.wrap(encodedFrame);
 						byte[] headerBytes = ByteBuffer.allocate(offsetInBytes).putInt(seqNum).array();
@@ -221,20 +221,10 @@ public class Recorder extends Thread {
 		} // while loop for playing a single hello
 		hello_locator = 0;
 		try {
-			Thread.sleep(4000);
+			Thread.sleep(3000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-		/**
-		synchronized(this) {
-			try {	
-				if(!isFinishing())
-					this.wait();
-			}
-			catch(InterruptedException e) {
-				Log.d("Recorder", e.toString());
-			}
-		}**/
 	}
 	
 	private void release() {			
