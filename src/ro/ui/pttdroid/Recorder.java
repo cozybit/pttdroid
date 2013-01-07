@@ -72,7 +72,9 @@ public class Recorder extends Thread {
 				try {		
 					// if Testmode is ON, use the pcmHello frame, encode and send it
 					if (isTestmode) {
-						this.playSingleHello();
+						while (isTestmode) {
+							this.playSingleHello();
+						}
 					} else {
 						ByteBuffer target = ByteBuffer.wrap(encodedFrame);
 						byte[] headerBytes = ByteBuffer.allocate(offsetInBytes).putInt(seqNum).array();
@@ -219,12 +221,22 @@ public class Recorder extends Thread {
 		} // while loop for playing a single hello
 		hello_locator = 0;
 		try {
-			Thread.sleep(2000);
+			Thread.sleep(4000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
+		/**
+		synchronized(this) {
+			try {	
+				if(!isFinishing())
+					this.wait();
+			}
+			catch(InterruptedException e) {
+				Log.d("Recorder", e.toString());
+			}
+		}**/
 	}
-
+	
 	private void release() {			
 		if(recorder!=null) {
 			recorder.stop();
@@ -256,11 +268,11 @@ public class Recorder extends Thread {
 		this.notify();
 	}
 
-	public boolean getTestmode() {
+	public synchronized boolean getTestmode() {
 		return isTestmode;
 	}
 
-	public void setTestmode(boolean isTestmode) {
+	public synchronized void setTestmode(boolean isTestmode) {
 		this.isTestmode = isTestmode;
 	}
 	

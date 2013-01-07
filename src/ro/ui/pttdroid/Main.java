@@ -47,7 +47,6 @@ public class Main extends Activity implements OnTouchListener {
 	 */	
 	private static Player player;	
 	private static Recorder recorder;	
-	private static PlayHello playhello;
 	
 	// Block recording when playing  something.
 	private static Handler handler = new Handler();
@@ -59,8 +58,7 @@ public class Main extends Activity implements OnTouchListener {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.main);        
-                                      
+        setContentView(R.layout.main);                             
         init();        
     }
     
@@ -76,7 +74,7 @@ public class Main extends Activity implements OnTouchListener {
     @Override
     public void onStop() {
     	super.onStop();
-    	
+    	clearLossesText();
     	player.pauseAudio();
     	recorder.pauseAudio();    	
 
@@ -86,7 +84,7 @@ public class Main extends Activity implements OnTouchListener {
             
     @Override
     public void onDestroy() {
-    	lossesText.setText("");
+    	clearLossesText();
     	super.onDestroy();  
     	release();    	
     }
@@ -135,7 +133,8 @@ public class Main extends Activity implements OnTouchListener {
     	if(!isTestmode) {
     		isTestmode = true;
     		recorder.setTestmode(isTestmode);
-    		playhello.setRunLoop(isTestmode);
+    		recorder.resumeAudio();
+    		setMicrophoneState(MIC_STATE_PRESSED);
 
     		toast = Toast.makeText(this, getString(R.string.testmode_on), Toast.LENGTH_SHORT);
     		toast.setGravity(Gravity.CENTER, 0, 0);
@@ -144,7 +143,9 @@ public class Main extends Activity implements OnTouchListener {
     	} else {
     		isTestmode = false;
     		recorder.setTestmode(isTestmode);
-    		playhello.setRunLoop(isTestmode);
+    		setMicrophoneState(MIC_STATE_NORMAL);
+    		recorder.pauseAudio();
+//    		playhello.setRunLoop(isTestmode);
     		
     		toast = Toast.makeText(this, getString(R.string.testmode_off), Toast.LENGTH_SHORT);
     		toast.setGravity(Gravity.CENTER, 0, 0);
@@ -196,7 +197,16 @@ public class Main extends Activity implements OnTouchListener {
     public boolean onTouch(View v, MotionEvent e) {
     	if(getMicrophoneState()!=MIC_STATE_DISABLED) {    		
     		switch(e.getAction()) {
-    		case MotionEvent.ACTION_DOWN:    			
+    		case MotionEvent.ACTION_DOWN:
+    			if (isTestmode) {
+	    			isTestmode = false;
+	    			recorder.setTestmode(isTestmode);
+	    			
+	    			Toast toast;
+	    			toast = Toast.makeText(this, getString(R.string.testmode_intr), Toast.LENGTH_SHORT);
+	        		toast.setGravity(Gravity.CENTER, 0, 0);
+	        		toast.show();
+    			}
     			recorder.resumeAudio();
     			setMicrophoneState(MIC_STATE_PRESSED);
     			break;
@@ -236,7 +246,7 @@ public class Main extends Activity implements OnTouchListener {
     	microphoneImage.setOnTouchListener(this);    	    	    	    	    	
     	
     	lossesText = (TextView) findViewById(R.id.lossesText);
-    	//lossesText.setText("Loses reported here");
+    	lossesText.setText("");
     	
     	// When the volume keys will be pressed the audio stream volume will be changed. 
     	setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -251,7 +261,7 @@ public class Main extends Activity implements OnTouchListener {
     		    	    	    		
     		player = new Player();    		    		     		    	
     		recorder = new Recorder();
-    		playhello = new PlayHello();
+//    		playhello = new PlayHello();
     		
     		// Disable microphone when receiving data.
     		runnable = new Runnable() {
@@ -259,18 +269,34 @@ public class Main extends Activity implements OnTouchListener {
 				public void run() {					
 					int currentProgress = player.getProgress();
 					
+					// still playing audio data
 					if(currentProgress!=storedProgress) {
 						if(getMicrophoneState()!=MIC_STATE_DISABLED) {
+							Toast toast;
+							toast = Toast.makeText(getBaseContext(), "I receivid some packet", Toast.LENGTH_SHORT);
+				    		toast.setGravity(Gravity.CENTER, 0, 0);
+				    		toast.show();
+				    		
 							recorder.pauseAudio();
-							clearLossesText();
 							setMicrophoneState(MIC_STATE_DISABLED);
+							clearLossesText();
 						}						 							
 					}
-					else {
+					else { // done playing
 						if(getMicrophoneState()==MIC_STATE_DISABLED) {
 							setMicrophoneState(MIC_STATE_NORMAL);
 							displayQuality();
 				    		player.resetLosses();
+				    		if (isTestmode) { // if still in test mode want to resume
+				    			Toast toast;
+								toast = Toast.makeText(getBaseContext(), "already testmode. done playing. resumeAudio()", Toast.LENGTH_SHORT);
+					    		toast.setGravity(Gravity.CENTER, 0, 0);
+					    		toast.show();
+					    		
+				    			setMicrophoneState(MIC_STATE_PRESSED);
+				    			recorder.setTestmode(isTestmode);
+				    			recorder.resumeAudio();
+				    		}
 						}
 					}
 					
@@ -283,9 +309,10 @@ public class Main extends Activity implements OnTouchListener {
     		handler.postDelayed(runnable, PROGRESS_CHECK_PERIOD);
     		
     		player.start();
-    		recorder.start(); 
-    		playhello.setDaemon(true);
-    		playhello.start();
+    		recorder.start();
+    		clearLossesText();
+//    		playhello.setDaemon(true);
+//    		playhello.start();
     		
     		isStarting = false;    		
     	}
@@ -295,7 +322,11 @@ public class Main extends Activity implements OnTouchListener {
     	// If the back key was pressed.
     	if(isFinishing()) {
     		handler.removeCallbacks(runnable);
-
+    		lossesText.setText("");
+    		
+    		// end test mode
+    		isTestmode = false;
+    		recorder.setTestmode(isTestmode);
     		// Force threads to finish.
     		player.finish();    		    		
     		recorder.finish();;
@@ -309,7 +340,7 @@ public class Main extends Activity implements OnTouchListener {
     		}
     		player = null;
     		recorder = null;
-    	    		
+    		lossesText.setText("");		
     		// Resetting isStarting.
     		isStarting = true;     		
     	}
