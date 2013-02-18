@@ -115,12 +115,12 @@ function validateRepo () {
 # increases the versionCode attribute by 1
 # usage: increaseVersionCode
 function increaseVersionCode () {
-	echo "Bumping project code and version name"
-	INIT_VCODE=`grep versionCode AndroidManifest.xml | cut -d"\"" -f2`
-	VCODE=$((INIT_VCODE+1))
+	echo "Bumping version code (+1)"
+	_INIT_VCODE=`extractAttributeXML AndroidManifest.xml /manifest android:versionCode`
+	VCODE=$((_INIT_VCODE+1))
 
 	# update code version code in the android manifest
-	sed -i -e "s/versionCode=\"${INIT_VCODE}\"/versionCode=\"${VCODE}\"/" AndroidManifest.xml || \
+	sed -i -e "s/versionCode=\"${_INIT_VCODE}\"/versionCode=\"${VCODE}\"/" AndroidManifest.xml || \
 		{ echo "ERROR: could not extend the versionCode attribute in the AndroidManifest.xml."; return 1; }
 
 	return 0
