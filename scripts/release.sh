@@ -85,7 +85,10 @@ function checkParams () {
 	[ -z "`which xmllint`" ] && die "ERROR: xmllint utility is not available. Please, install it."
 	[ -z "`which ant-b`" ] && die "ERROR: ant-b utility is not available. Please, check the README for more instructions."
 	# check given parameters
-	[ -z "${GIT_REPO}" ] && die "ERROR: Please, specify a git repository. \n${usage}"
+	if [ -z "${GIT_REPO}" ]; then
+		GIT_REPO=`git remote show github | grep "Fetch URL" | awk '{print$3}'`
+		[ -z "${GIT_REPO}" ] && die "ERROR: Please, specify a git repository. \n${usage}"
+	fi
 	[ -z "${VNAME}" ] && die "ERROR: a version name/tag has to be specified (ie: 0.4.2). \n${usage}"
 	[[ ${VNAME} == +([0-9]).+([0-9]).+([0-9]) ]] || die "ERROR: the version name has to follow this format: <major>.<minor>.<point>"
 }
@@ -98,10 +101,12 @@ function validateRepo () {
 	# Check tag is not already taken
 	[ `git tag | grep -x -c ${VNAME}` -gt 0 ] && die "ERROR: the TAG ${VNAME} is already taken."
 	# Validate that provided version name/tag is bigger than latest tag
-	_LAST_TAG=`git tag | xargs -I@ git log --format=format:"%ci %h @%n" -1 @ | sort | awk '{print$5}' | tail -1`
-	[[ ${_LAST_TAG} == +([0-9]).+([0-9]).+([0-9]) ]] || die "ERROR: tag ${_LAST_TAG} does not follow the format: <major>.<minor>.<point>"
-	compareVersions ${VNAME} ${_LAST_TAG}
-	[ $? -ne 1 ] && die "ERROR: the version name/tag (${VNAME}) has to be bigger than ${_LAST_TAG}."	
+	if [ -n "`git tag`" ]; then
+		_LAST_TAG=`git tag | xargs -I@ git log --format=format:"%ci %h @%n" -1 @ | sort | awk '{print$5}' | tail -1`
+		[[ ${_LAST_TAG} == +([0-9]).+([0-9]).+([0-9]) ]] || die "ERROR: current tag \"${_LAST_TAG}\" does not follow the format: <major>.<minor>.<point>"
+		compareVersions ${VNAME} ${_LAST_TAG}
+		[ $? -ne 1 ] && die "ERROR: the version name/tag (${VNAME}) has to be bigger than ${_LAST_TAG}."
+	fi
 
 	# Validate branch to work with. If it exists, check it out. If not fail.
 	[ `git branch -r | cut -d"/" -f2 | grep -x ${BRANCH}` ] || die "ERROR: the BRANCH ${BRANCH} does not exist in the repo."
