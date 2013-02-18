@@ -86,7 +86,7 @@ function checkParams () {
 	[ -z "`which ant-b`" ] && die "ERROR: ant-b utility is not available. Please, check the README for more instructions."
 	# check given parameters
 	if [ -z "${GIT_REPO}" ]; then
-		GIT_REPO=`git remote show github | grep "Fetch URL" | awk '{print$3}'`
+		GIT_REPO=`git remote show origin | grep "Fetch URL" | awk '{print$3}'`
 		[ -z "${GIT_REPO}" ] && die "ERROR: Please, specify a git repository. \n${usage}"
 	fi
 	[ -z "${VNAME}" ] && die "ERROR: a version name/tag has to be specified (ie: 0.4.2). \n${usage}"
